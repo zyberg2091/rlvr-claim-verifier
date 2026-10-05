@@ -1,0 +1,12 @@
+{
+  "dataset_csv": "data/interleaved_reasoning_datatset_210_tasks.csv",
+  "trajectories_file": "outputs/trajectories_paper_template_v2.pkl",
+  "rollouts_jsonl": "outputs/rollouts_raw.jsonl",
+  "checkpoint_dir": "outputs/checkpoints",
+  "final_model_dir": "outputs/final_ppo_model",
+  "export_copy_dir": null,
+  "probe_input": "data/engaged_tests_all.json",
+  "probe_output": "outputs/out_engaged_tests_all.json",
+  "verifier_data_dir": "data/rollout_checks",
+  "resume_from_checkpoint": null
+}

@@ -1,0 +1,8 @@
+# Use the versions from the working notebook environment when available.
+# Exact versions were not recorded in the uploaded notebooks.
+torch
+transformers
+peft
+bitsandbytes
+accelerate
+pandas
