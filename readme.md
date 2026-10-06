@@ -98,7 +98,7 @@ The last case shows why the solution check is separate: the rules support the cl
 
 - **Parser tests:** The parser matched **187 of 188 expected character labels**: 31/31 gold labels, 131/132 stress labels, and 25/25 labels from cases resembling real rollouts. Three labels flagged for review were excluded from this score. These cases were written with AI assistance. The results show performance on these constructed tests; they do not establish accuracy on real rollouts.
 
-- **Preliminary rollout results:** Model-proposed labels marked at least one character as engaged in **190 of 200 randomly sampled reasoning steps**. Fifty steps have also been checked by hand, but the agreement from those checks is still to be reported.
+- **Preliminary rollout results:** Model-proposed labels marked at least one character as engaged in **190 of 200 randomly sampled reasoning steps**. On 50 randomly chosen steps checked by hand (118 character labels), the parser agrees with the hand-checked labels on 113, which is 95.8%.
 
 - **Known limitation:** Valid reasoning expressed only through roles may fail the engagement criterion because it does not explicitly call a statement true or false. Failing this criterion does not automatically mean the reasoning is wrong.
 
