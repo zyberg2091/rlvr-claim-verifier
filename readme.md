@@ -88,6 +88,7 @@ The last case shows why the solution check is separate: the rules support the cl
 - Measure how often the engagement criterion misses valid reasoning because it does not explicitly call a statement true or false.
 - Compare an LLM judge with the full three-layer verifier.
 - **Later:** Test whether training with the verifier makes the reasoning more explicit or simply teaches the model to game its checks. Evaluate this through human review and tests that change parts of the reasoning, keeping these checks separate from those used during training. Repeat the comparison across several seeds.
+- Extend the method beyond Knights-and-Knaves to tasks where reasoning steps can be represented as constraints, including math problems, planning, scheduling and other logic tasks. For each domain, the main challenge is defining which parts of the reasoning can be converted into constraints and checked with the verifier.
 
 ## 5. Results so far
 
