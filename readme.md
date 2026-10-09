@@ -6,13 +6,22 @@
 
 ---
 
+## Starting point: Xie et al. (2025)
+
+- **Taken from the paper:** the interleaved format, where `<think>` reasoning alternates with intermediate answers in `<answer>` tags, and the conditional intermediate reward. An intermediate answer earns a reward for an exact match only if the format is valid and the final answer is correct.
+- **Changed:**
+  - Each intermediate answer includes a `Name: role` tag. The reward checks this tag instead of matching the whole answer text.
+  - The paper's batch-accuracy condition is implemented in the code, but it was disabled for all reward calculations.
+  - Training is smaller, with 4 rollouts per puzzle and a 600-token limit. There is no KL penalty, and saved rollouts are reused.
+- **Unchanged:** as in the paper, the reward checks only the answer, not the reasoning before it.
+- The full comparison is in Section 7.
+  
 ## 1. The problem
 
 - This project uses **Knights-and-Knaves puzzles**. Each character either always tells the truth or always lies. The model must determine each character’s role from their statements.
 - The model alternates reasoning in `<think>` blocks with intermediate answers in `<answer>` blocks. Each intermediate role claim has a tag such as `<sub_ans>Ella: deceiver</sub_ans>`.
-- The intermediate reward, adapted from Xie et al. (2025), checks whether a claim matches the answer key. It is awarded only when the final answer is also correct.
-- The reward does not check whether the reasoning written before the claim supports it.
-- Among the **497 retained rollouts**, 27 assigned both roles to the same character at different steps. In **seven of these rollouts**, the correct claim received intermediate reward despite the conflicting claim elsewhere in the rollout.
+- The reward does not check whether the reasoning written before the claim supports it. 
+- **Example:** In `task_10000` (rollout 2, step 2), the claim `Elijah: deceiver` is correct and receives an intermediate reward of 0.1667. But the step reaches this answer by assuming that "Ella cannot be a deceiver", even though Ella is a deceiver in the solution.
 - We want to investigate whether the reasoning written before a rewarded claim actually justifies it.
 
 ## 2. Why it needs solving
@@ -67,23 +76,21 @@ The last case shows why the solution check is separate: the rules support the cl
 
 - Built the PPO + LoRA training pipeline with an adapted version of the paper’s format and reward (`train.py`, `interleaved_reasoning/`).
 
-- Generated **684 rollouts from 171 puzzles** using Qwen2.5-7B-Instruct. After format filtering, **497 rollouts remained, containing 1,186 tagged steps**.
+- We used Qwen2.5-7B-Instruct to generate **684 rollouts from 171 puzzles** before any RL training. After filtering for format, **497 rollouts remained, containing 1,186 tagged steps**.
 
-- Checked the reward calculation. In seven rollouts containing conflicting role claims, the correct claim received intermediate reward.
-
-  **Example from saved notebook output:** In `task_10000`, rollout 2, the model claims `elijah: guardian` and later `elijah: deceiver`; the latter receives an intermediate reward of 0.1667.
+- Xie et al. match the whole answer text. We check the `Name: role` tag that the prompt asks the model to include in each answer. This tag is compared with the puzzle's correct name-role pairs. As in their paper, a claim is rewarded only if it matches the correct answer. The reasoning before the claim is not checked.
 
 - Defined the engagement criterion and updated the parser prompt (`probe.py`).
 
-- Tested the parser on difficult cases written with AI assistance.
+- Tested the parser on difficult cases written with AI assistance. It got 187 of 188 labels right, with three disputed labels settled by hand. Three boundary cases were left out because their labels were still undecided.
 
-- Processed **841 of the 1,186 steps** with the parser. Also checked 50 randomly selected steps by hand.
-
+- Ran the parser on **841 of the 1,186 steps**. Checked 58 steps by hand: 50 picked at random and 8 where the parser disagreed with the proposed labels.
+ 
 - Added a results notebook to check saved rollout and parser results (`check_kk_rollout_results.ipynb`).
 
 **Next**
 
-- Finish processing the remaining steps and report the parser’s agreement with hand-checked labels.
+- Finish processing the remaining steps with the parser.
 - Implement the axiom and enumeration layers, which currently have only hand-worked examples.
 - Measure how often the engagement criterion misses valid reasoning because it does not explicitly call a statement true or false.
 - Compare an LLM judge with the full three-layer verifier.
@@ -92,13 +99,11 @@ The last case shows why the solution check is separate: the rules support the cl
 
 ## 5. Results so far
 
-- **Reward behaviour:** In seven rollouts containing conflicting role claims, the correct claim still received intermediate reward.
+- **Answer text alone:** Only 3 of the 1,186 answer sentences contain truth words such as "true", "false" or "lying". These are also the only 3 marked as engaged. The verifier reads the think text to assess engagement in the reasoning behind the answers.
 
-- **Answer text alone:** Saved answer-only labels marked engagement in **3 of 1,186 steps**. This is a separate check from the unfinished full-step parser run. This measures explicit engagement under our definition, not whether the answer text contains any valid reasoning.
+- **Parser tests:** The parser matched **187 of 188 expected character labels**: 31/31 gold labels, 131/132 stress labels, and 25/25 labels from cases resembling real rollouts. Three disputed labels were settled by hand. Three boundary labels remained undecided and were left out of the score. The cases were written with AI assistance to test how well the parser follows the rule on difficult examples. This score does not measure accuracy on real rollouts.
 
-- **Parser tests:** The parser matched **187 of 188 expected character labels**: 31/31 gold labels, 131/132 stress labels, and 25/25 labels from cases resembling real rollouts. Three labels flagged for review were excluded from this score. These cases were written with AI assistance. The results show performance on these constructed tests; they do not establish accuracy on real rollouts.
-
-- **Preliminary rollout results:** Model-proposed labels marked at least one character as engaged in **190 of 200 randomly sampled reasoning steps**. On 50 randomly chosen steps checked by hand (118 character labels), the parser agrees with the hand-checked labels on 113, which is 95.8%.
+- **Preliminary rollout results:** At least one character is marked as engaged in **189 of 200 randomly sampled reasoning steps**. These labels were proposed by a model, with 58 steps checked by hand. On the 50 randomly chosen steps checked by hand, the parser agrees with 113 of 118 reviewed character labels: **95.8%** (95% interval: 90.5% to 98.2%).
 
 - **Known limitation:** Valid reasoning expressed only through roles may fail the engagement criterion because it does not explicitly call a statement true or false. Failing this criterion does not automatically mean the reasoning is wrong.
 
@@ -134,22 +139,30 @@ Data, saved results and model weights are not included. Model runs need a compat
 
 **Validation and current limitations**
 
-- The reported model runs were carried out in the original notebooks. The Python scripts reorganize that code. Python syntax and both command-line help interfaces have been checked, but the scripts have not been run end to end on a GPU in this review.
-- The results notebook includes cached outputs. Many reporting statements have been removed, so rerunning cells does not display all of those summaries. It also does not recompute the 841-step progress count or agreement for the 50 hand-reviewed steps.
+- The reported model runs were carried out in the original notebooks. The Python scripts reorganize that code. Python syntax and both command-line help interfaces have been checked, but the scripts have not been run end to end on a GPU.
+- Rerunning the results notebook does not reproduce all the summaries in its cached outputs. It also does not yet recalculate the 841-step count or the 95.8% agreement with labels checked by hand.
 - The parser skips IDs already present in `probe_output`, including failed or truncated responses. Use a new output filename when changing the prompt or deliberately rerunning a set.
 - Training resume restores adapter and value-head weights, but not optimizer or random state. Resuming an end-of-epoch checkpoint repeats that epoch. Periodic checkpoints include the value head; the final export contains the adapter and tokenizer.
 
-## 7. Differences from Xie et al. (2025)
+## 7. What we took from Xie et al. (2025) and what we changed
 
-- **Rollouts per puzzle:** We generate 4; the paper uses 8.
-- **Generation limit:** We use 600 tokens; the paper uses 2,548.
-- **Training settings:** We use no KL penalty or reference model. The learning rate is `2e-5`, compared with `1e-6` in the paper.
-- **Rollout collection:** Training reuses saved rollouts; it does not collect fresh rollouts between PPO updates.
-- **Intermediate reward:** The base reward is 0.5. We do not apply the paper’s batch-accuracy condition.
-- **Puzzle filtering:** We exclude a fixed list of 25 puzzles identified as having more than one valid answer.
-- **Answer format:** Each intermediate answer includes a `Name: role` tag, and the prompt contains two worked examples. The reported analysis uses a separately filtered set of rollouts. During collection, outputs missing required tags are retried; additional format violations can receive a negative format reward and still be saved.
+| Part of the setup | Xie et al. (2025) | This project |
+|---|---|---|
+| Reasoning format | Alternating `<think>` and `<answer>` blocks | Same |
+| Intermediate answers | Short answer text | Short answer text with a `Name: role` tag; the prompt includes two worked examples |
+| How intermediate answers are checked | The answer text must exactly match the expected answer | The tag must exactly match a correct name-role pair |
+| What the check reads | Only the answer, not the reasoning | Same |
+| Conditions for intermediate reward | Valid format, a correct final answer, and improved batch accuracy | Valid format and a correct final answer; the batch-accuracy condition is implemented but disabled |
+| Reward schedule | Earlier correct answers receive more reward through time discounting | Also time-discounted, with a base reward of 0.5 |
+| Rollouts per puzzle | 8 | 4 |
+| Generation limit | 2,548 tokens | 600 tokens |
+| KL penalty and reference model | Used | Not used |
+| Learning rate | 1e-6 | 2e-5 |
+| Rollout collection | Fresh rollouts for each update | Saved rollouts are reused |
+| Format enforcement | Format reward | Format reward, retries for missing tags, and filtering after generation |
+| Puzzles | Knights-and-Knaves puzzles | 171 Knights-and-Knaves puzzles; 25 with more than one valid answer excluded |
 
-These differences need to be considered when comparing our results with the paper.
+Any comparison with the paper's results needs to account for these differences.
 
 ## 8. References
 
