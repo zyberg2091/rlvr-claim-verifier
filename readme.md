@@ -38,13 +38,15 @@ The verifier has three layers:
 - **Axiom layer: designed.** These parts of the reasoning are converted into logical rules using only what the text explicitly says. The answer key is not used to construct the rules.
 - **Enumeration layer: designed.** Every possible combination of roles is checked against the rules collected before the claim. Combinations that break any rule are removed.
 
+A separate **solver (built)** runs once per puzzle. It reads only the puzzle, tries every role assignment, and keeps the one where each character's statement matches their role. Its result is used only for the solution check below, never to build rules.
+
 **What the results mean**
 
 - **Inconsistent rules: the rules contradict each other.** There is no way to assign everyone a role without breaking a rule. These rules cannot be used to support a claim.
 - **Supported: the rules establish the claimed role.** The rules do not contradict each other, and the character must have the claimed role to satisfy them.
 - **Insufficient support: the rules do not establish the claimed role.** They still allow the character to have the opposite role.
 
-We also compare the rules with the known solution:
+We also compare the rules with the solver's solution:
 
 - **Conflict with the solution: a rule disagrees with the correct answer.** The error could come from the model’s reasoning or from how we extracted the rule.
 
@@ -86,6 +88,8 @@ The last case shows why the solution check is separate: the rules support the cl
 
 - Ran the parser on **841 of the 1,186 steps**. Checked 58 steps by hand: 50 picked at random and 8 where the parser disagreed with the proposed labels.
  
+- Built a solver, and a converter that turns each puzzle's text into logical statements. Excluded 25 of the 196 puzzles in the dataset because their statements can be grouped in more than one way. The excluded IDs are listed in `interleaved_reasoning/data.py`.
+
 - Added a results notebook to check saved rollout and parser results (`check_kk_rollout_results.ipynb`).
 
 **Next**
@@ -100,6 +104,8 @@ The last case shows why the solution check is separate: the rules support the cl
 ## 5. Results so far
 
 - **Answer text alone:** Only 3 of the 1,186 answer sentences contain truth words such as "true", "false" or "lying". These are also the only 3 marked as engaged. The verifier reads the think text to assess engagement in the reasoning behind the answers.
+
+- **Solver check:** Reading each statement in one way, the solver finds exactly one role assignment in all 196 puzzles, and it matches the dataset's final answer in all 196. In 2 puzzles (`task_142859` and `task_949585`), the last row's claims disagree with the final answer; both are among the 25 excluded. This check does not show why the 25 are excluded. That needs every grouping of their statements: under some groupings, the answer key is not the only solution.
 
 - **Parser tests:** The parser matched **187 of 188 expected character labels**: 31/31 gold labels, 131/132 stress labels, and 25/25 labels from cases resembling real rollouts. Three disputed labels were settled by hand. Three boundary labels remained undecided and were left out of the score. The cases were written with AI assistance to test how well the parser follows the rule on difficult examples. This score does not measure accuracy on real rollouts.
 
@@ -160,7 +166,7 @@ Data, saved results and model weights are not included. Model runs need a compat
 | Learning rate | 1e-6 | 2e-5 |
 | Rollout collection | Fresh rollouts for each update | Saved rollouts are reused |
 | Format enforcement | Format reward | Format reward, retries for missing tags, and filtering after generation |
-| Puzzles | Knights-and-Knaves puzzles | 171 Knights-and-Knaves puzzles; 25 with more than one valid answer excluded |
+| Puzzles | Knights-and-Knaves puzzles | 171 Knights-and-Knaves puzzles; 25 excluded because their statements can be grouped in more than one way |
 
 Any comparison with the paper's results needs to account for these differences.
 
